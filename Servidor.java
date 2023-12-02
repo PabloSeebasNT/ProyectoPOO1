@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -43,7 +45,7 @@ class MarcoServidor extends JFrame implements Runnable{
 		
 		Thread mihilo = new Thread(this);
 		mihilo.start();
-	}
+		}
 	
 	private	JTextArea areatexto;
 
@@ -57,8 +59,10 @@ class MarcoServidor extends JFrame implements Runnable{
 			String nick, ip, mensaje;
 			
 			paqueteDatos paquete_recibido;
+			ArrayList <String> listaIp = new ArrayList<String>();
 
 			while (true) {
+				
 				Socket misocket = servidor.accept();
 
 				ObjectInputStream paquete_datos = new ObjectInputStream(misocket.getInputStream());
@@ -71,15 +75,33 @@ class MarcoServidor extends JFrame implements Runnable{
 
 				mensaje = paquete_recibido.getMensaje();
 
-				areatexto.append("\n" + nick + " : " + mensaje + " Para: " + ip);
-
-				Socket enviarDataDestinatario = new Socket(ip,  9090);
-				ObjectOutputStream paquete_reenviar = new ObjectOutputStream(enviarDataDestinatario.getOutputStream());
+				if (!mensaje.equals(" online")) {
 				
-				paquete_reenviar.writeObject(paquete_recibido);
-				paquete_reenviar.close();
-				enviarDataDestinatario.close();
-				misocket.close();
+					areatexto.append("\n" + nick + " : " + mensaje + " Para: " + ip);
+
+					Socket enviarDataDestinatario = new Socket(ip,  9090);
+					ObjectOutputStream paquete_reenviar = new ObjectOutputStream(enviarDataDestinatario.getOutputStream());
+					
+					paquete_reenviar.writeObject(paquete_recibido);
+					paquete_reenviar.close();
+					enviarDataDestinatario.close();
+					misocket.close();
+				}else{
+					InetAddress getIp = misocket.getInetAddress();
+					String IpRemota = getIp.getHostAddress();
+					listaIp.add(IpRemota);
+					paquete_recibido.setIps(listaIp);
+					for(String z:listaIp){
+						Socket enviarDataDestinatario = new Socket(z,  9090);
+						ObjectOutputStream paquete_reenviar = new ObjectOutputStream(enviarDataDestinatario.getOutputStream());
+						
+						paquete_reenviar.writeObject(paquete_recibido);
+						paquete_reenviar.close();
+						enviarDataDestinatario.close();
+						misocket.close();
+					}
+				}
+				
 			}
 			
 		} catch (IOException | ClassNotFoundException e) {
