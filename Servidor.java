@@ -1,90 +1,89 @@
-package Pruebas;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
+
+import java.awt.BorderLayout;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+// import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class Servidor {
-    
-    public static void main(String[] args) throws IOException {
-        
-        final int PORT = 4444;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JTextArea;
 
-        ServerSocket serverSocket;
+public class Servidor  {
 
-        Socket cliente1;
-        Socket cliente2;
+	public static void main(String[] args) {
+		
+		MarcoServidor mimarco=new MarcoServidor();
+		
+		mimarco.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+			
+	}	
+}
 
-        try {
+class MarcoServidor extends JFrame implements Runnable{
+	
+	public MarcoServidor(){
+		
+		setBounds(1200,300,280,350);				
+			
+		JPanel milamina= new JPanel();
+		
+		milamina.setLayout(new BorderLayout());
+		
+		areatexto=new JTextArea();
+		
+		milamina.add(areatexto,BorderLayout.CENTER);
+		
+		add(milamina);
+		
+		setVisible(true);
+		
+		Thread mihilo = new Thread(this);
+		mihilo.start();
+	}
+	
+	private	JTextArea areatexto;
 
-            serverSocket = new ServerSocket( PORT );
-            System.out.println("Servidor iniciado, esperando conexiones...");
+	@Override
+	public void run() {
+		//System.out.println("Listening...");
 
-            cliente1 = serverSocket.accept();
-            System.out.println("Cliente 1 conectado");
+		try {
+			ServerSocket servidor = new ServerSocket(9999);
 
-            cliente2 = serverSocket.accept();
-            System.out.println("Cliente 2 conectado");
+			String nick, ip, mensaje;
+			
+			paqueteDatos paquete_recibido;
 
-            // Entradas:
-            BufferedReader inCliente1 = new BufferedReader( new InputStreamReader( cliente1.getInputStream() ) );
-            BufferedReader inCliente2 = new BufferedReader( new InputStreamReader( cliente2.getInputStream() ) );
+			while (true) {
+				Socket misocket = servidor.accept();
 
-            // Salidas:
-            DataOutputStream outCliente1 = new DataOutputStream( cliente1.getOutputStream() );
-            outCliente1.writeUTF("Conectado con el cliente 1");
+				ObjectInputStream paquete_datos = new ObjectInputStream(misocket.getInputStream());
 
-            DataOutputStream outCliente2 = new DataOutputStream( cliente2.getOutputStream() );
-            outCliente2.writeUTF("Conectado con el cliente 2");
+				paquete_recibido = (paqueteDatos) paquete_datos.readObject();
 
-             // Aquí se realiza la comunicación entre los clientes
-             Thread cl1 = new Thread(() -> {
+				nick = paquete_recibido.getNick();
 
-                try {
+				ip = paquete_recibido.getIp();
 
-                    String mensaje;
+				mensaje = paquete_recibido.getMensaje();
 
-                    while ( ( mensaje = inCliente1.readLine() ) != null ) {
-                        System.out.println("Cliente 1: " + mensaje);
-                        outCliente2.writeUTF("Cliente 1: " + mensaje);
-                    }
+				areatexto.append("\n" + nick + " : " + mensaje + " Para: " + ip);
 
-                } 
-                catch (IOException e) {
-                    System.out.println( e.getMessage() );
-                }
-
-            });
-            
-            cl1.start();
-            
-            Thread cl2 = new Thread(() -> {
-
-                try {
-
-                    String mensaje;
-
-                    while ( ( mensaje = inCliente2.readLine() ) != null ) {
-                        System.out.println("Cliente 2: " + mensaje);
-                        outCliente1.writeUTF("Cliente 2: " + mensaje);
-                    }
-
-                } 
-                catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-            });
-            cl2.start();
-
-        } 
-        catch ( IOException e) {
-            System.out.println( e.getMessage() );
-        }
-        
-    }
-
+				Socket enviarDataDestinatario = new Socket(ip,  9090);
+				ObjectOutputStream paquete_reenviar = new ObjectOutputStream(enviarDataDestinatario.getOutputStream());
+				
+				paquete_reenviar.writeObject(paquete_recibido);
+				paquete_reenviar.close();
+				enviarDataDestinatario.close();
+				misocket.close();
+			}
+			
+		} catch (IOException | ClassNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
 }
