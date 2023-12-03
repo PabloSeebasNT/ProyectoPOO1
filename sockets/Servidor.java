@@ -44,7 +44,7 @@ class MarcoServidor extends JFrame implements Runnable{
 		setVisible(true);
 		
 		Thread mihilo = new Thread(this);
-		mihilo.start();
+			mihilo.start();
 		}
 	
 	private	JTextArea areatexto;
