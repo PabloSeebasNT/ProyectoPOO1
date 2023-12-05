@@ -76,7 +76,7 @@ class MarcoServidor extends JFrame implements Runnable{
 				mensaje = paquete_recibido.getMensaje();
 
 				if (!mensaje.equals(" online")) {
-				
+					
 					areatexto.append("\n" + nick + " : " + mensaje + " Para: " + ip);
 
 					Socket enviarDataDestinatario = new Socket(ip,  9090);
@@ -86,7 +86,8 @@ class MarcoServidor extends JFrame implements Runnable{
 					paquete_reenviar.close();
 					enviarDataDestinatario.close();
 					misocket.close();
-				}else{
+				}
+				else {
 					InetAddress getIp = misocket.getInetAddress();
 					String IpRemota = getIp.getHostAddress();
 					listaIp.add(IpRemota);
