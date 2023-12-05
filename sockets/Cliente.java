@@ -2,6 +2,9 @@ import javax.swing.*;
 import java.awt.Window;
 import java.awt.event.*;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectInputStream;
@@ -41,7 +44,7 @@ class MarcoCliente extends JFrame{
 class EnvioIp extends WindowAdapter{
 	public void windowOpened(WindowEvent e) {
 		try {
-			Socket otroSocket = new Socket("192.168.0.241", 9999);
+			Socket otroSocket = new Socket("192.168.56.1", 9999);
 			paqueteDatos data = new paqueteDatos();
 			data.setMensaje(" online");
 			ObjectOutputStream paquete_enviar = new ObjectOutputStream(otroSocket.getOutputStream());
@@ -52,6 +55,7 @@ class EnvioIp extends WindowAdapter{
 		}
 	}
 }
+
 class LaminaMarcoCliente extends JPanel implements Runnable{
 	
 	public LaminaMarcoCliente(){
@@ -81,6 +85,14 @@ class LaminaMarcoCliente extends JPanel implements Runnable{
 		miboton.addActionListener(mievento);
 		
 		add(miboton);
+
+		fileboton = new JButton("File");
+
+		EnviarArchivo mievento2 = new EnviarArchivo();
+		fileboton.addActionListener(mievento2);
+
+		add(fileboton);
+
 		
 		Thread miHilo = new Thread(this);
 		miHilo.start();
@@ -96,7 +108,7 @@ class LaminaMarcoCliente extends JPanel implements Runnable{
 			// Aqui construiremos el socket
 			campochat.append("\nTú: "+ campo1.getText());
 			try{
-				Socket misocket = new Socket("192.168.0.241",9999); //host = ip del servidor
+				Socket misocket = new Socket("192.168.56.1",9999); //host = ip del servidor
 				
 				paqueteDatos data = new paqueteDatos();
 
@@ -106,34 +118,69 @@ class LaminaMarcoCliente extends JPanel implements Runnable{
 				data.setNick(nick.getText());
 				data.setIp(ip.getSelectedItem().toString());
 				data.setMensaje(mensajeRSA);
-				//data.setMensaje( campo1.getText() );
+				data.setArchivo(null);
 
 				ObjectOutputStream enviar_paquete = new ObjectOutputStream(misocket.getOutputStream());
 
 				enviar_paquete.writeObject(data);
 				campo1.setText("");
-				//DataOutputStream flujo_salida = new DataOutputStream(misocket.getOutputStream());
-				//flujo_salida.writeUTF(campo1.getText());
-				//flujo_salida.close();
+
 			} catch(UnknownHostException e1){
 				e1.printStackTrace();
 			} catch(IOException e1){
 				System.out.println(e1.getMessage());
 			}
-			
-			// Verificamos que funciona el boton:
-			//System.out.println(campo1.getText());
 		}
 		
 	}
+
+	private class EnviarArchivo implements ActionListener{
+		@Override
+		public void actionPerformed(ActionEvent e) {
+
+			// Aqui construiremos el socket
+			try{
+				Socket misocket = new Socket("192.168.56.1",9999); //host = ip del servidor
+				
+				paqueteDatos data = new paqueteDatos();
+
+				String ruta = campo1.getText();
+
+				try {
+					FileInputStream archivo = new FileInputStream(ruta);
+					data.setArchivo( archivo.readAllBytes() );
+
+					data.setNick(nick.getText());
+					data.setIp(ip.getSelectedItem().toString());
+					data.setMensaje(ruta);
+				} 
+				catch (Exception file) {
+					campochat.append("\nTú no se encontró: "+ campo1.getText());
+				}
+
+				ObjectOutputStream enviar_paquete = new ObjectOutputStream(misocket.getOutputStream());
+
+				enviar_paquete.writeObject(data);
+				campochat.append("\nTú enviaste: "+ campo1.getText());
+				campo1.setText("");
+
+			} 
+			catch(UnknownHostException e1){
+				e1.printStackTrace();
+			} 
+			catch(IOException e1){
+				System.out.println(e1.getMessage());
+			}
+		}
 		
-		
+	}
 		
 	private JTextField campo1;
 	private JComboBox ip;
 	private JLabel nick;
 	private JTextArea campochat;
 	private JButton miboton;
+	private JButton fileboton;
 	@Override
 	public void run() {
 		try{
@@ -147,11 +194,27 @@ class LaminaMarcoCliente extends JPanel implements Runnable{
 				ObjectInputStream flujoentrada = new ObjectInputStream(cliente.getInputStream());
 				paquete_recibido = (paqueteDatos) flujoentrada.readObject();
 
-				if (!paquete_recibido.getMensaje().equals(" online")) {
-					// Desencriptar mensaje
-					String mensajeDesencriptado = paquete_recibido.desencriptarRSA( paquete_recibido.getMensaje() );
-					paquete_recibido.setMensaje( mensajeDesencriptado );
-					campochat.append("\n" + paquete_recibido.getNick() + " : " + paquete_recibido.getMensaje());
+				if ( !paquete_recibido.getMensaje().equals(" online") ) {
+					
+					if ( paquete_recibido.getArchivo() != null ) {
+
+						String ruta = paquete_recibido.getMensaje();
+						String[] partes = ruta.split("\\\\");
+
+						FileOutputStream archivo = new FileOutputStream( partes[partes.length-1] );
+
+						byte[] buffer = paquete_recibido.getArchivo();
+						archivo.write( buffer );
+
+						archivo.close();
+					}
+					else {
+						// Desencriptar mensaje
+						String mensajeDesencriptado = paquete_recibido.desencriptarRSA( paquete_recibido.getMensaje() );
+						paquete_recibido.setMensaje( mensajeDesencriptado );
+						campochat.append("\n" + paquete_recibido.getNick() + " : " + paquete_recibido.getMensaje());
+					}
+					
 				}
 				else {
 					ArrayList <String> ipLista = new ArrayList<String>();
@@ -172,9 +235,9 @@ class LaminaMarcoCliente extends JPanel implements Runnable{
 
 class paqueteDatos implements Serializable{
 	private String nick, ip, mensaje;
+	byte[] archivo = null;
 
 	private ArrayList <String> Ips;
-	
 
 	public void setIps(ArrayList<String> ips) {
 		Ips = ips;
@@ -206,6 +269,14 @@ class paqueteDatos implements Serializable{
 
 	public void setMensaje(String mensaje) {
 		this.mensaje = mensaje;
+	}
+
+	public byte[] getArchivo() {
+		return archivo;
+	}
+
+	public void setArchivo(byte[] archivo) {
+		this.archivo = archivo;
 	}
 
 	public String encriptarRSA( String mensaje ) {
